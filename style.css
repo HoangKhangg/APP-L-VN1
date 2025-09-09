@@ -1,0 +1,136 @@
+
+:root {
+  --bg: #f9fbfd;
+  --text: #1e1e1e;
+  --card: #ffffff;
+  --accent: #0d6efd;
+  --accent-hover: #0b5ed7;
+  --danger: #dc3545;
+  --danger-hover: #c82333;
+  --input: #ffffff;
+  --meta-bg: #f1f3f5;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', sans-serif;
+  transition: all 0.3s ease;
+}
+
+h1 {
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 24px;
+}
+
+.card {
+  border-radius: 14px;
+  background-color: var(--card);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.btn {
+  border-radius: 8px;
+  font-weight: 500;
+  padding: 8px 14px;
+}
+
+.btn-outline-primary {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.btn-outline-primary:hover {
+  background-color: var(--accent-hover);
+  color: white;
+}
+
+.btn-outline-danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.btn-outline-danger:hover {
+  background-color: var(--danger-hover);
+  color: white;
+}
+
+.btn-secondary {
+  background-color: #adb5bd;
+  color: white;
+}
+.btn-secondary:hover {
+  background-color: #868e96;
+}
+
+input.form-control,
+input.form-range {
+  background-color: var(--input);
+  color: var(--text);
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+
+#soundboard > div {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin: 4px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  transition: all 0.2s ease-in-out;
+}
+#soundboard > div:hover {
+  transform: scale(1.03);
+}
+
+#youtubeMeta {
+  background-color: var(--meta-bg);
+  padding: 10px 14px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#youtubeMeta img {
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+#seekPreview {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+@media (max-width: 768px) {
+  #soundboard > div {
+    width: 100%;
+  }
+}
+
+
+.youtube-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.youtube-controls input {
+  flex: 1;
+}
+
+.youtube-controls .btn {
+  border-radius: 8px !important;
+  padding: 6px 12px;
+  font-size: 14px;
+}
+
+#youtubeMeta {
+  background-color: var(--meta-bg);
+  padding: 10px 14px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
