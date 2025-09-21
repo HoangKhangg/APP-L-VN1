@@ -374,7 +374,6 @@ class YouTubePlayer {
 }
 
 
-
 // ===============================
 // 🎵 Beat (chèn nhạc nền) dùng IndexedDB
 // ===============================
@@ -385,13 +384,16 @@ class SoundBoard {
     this.uploadInput = document.getElementById("uploadInput");
     this.volumeSlider = document.getElementById("effectVolumeSlider");
     this.searchInput = document.getElementById("searchBeatInput");
-    this.sounds = []; // { id, name, sound(Howl), btn, deleteBtn }
+    this.sounds = []; // { id, name, sound(Howl), btn, deleteBtn, url }
+    this.currentPlaying = null;
 
     this.uploadInput?.addEventListener("change", (e) => this.handleUpload(e));
     this.searchInput?.addEventListener("input", (e) => this.filterSounds(e.target.value));
     this.volumeSlider?.addEventListener("input", (e) => {
       const v = Number(e.target.value || 1);
-      this.sounds.forEach(({ sound }) => sound.volume(v));
+      this.sounds.forEach(({ sound }) => {
+        try { sound.volume(v); } catch (_) {}
+      });
     });
 
     // Sortable (nếu cần)
@@ -399,6 +401,21 @@ class SoundBoard {
 
     // Migrate từ localStorage (nếu có) rồi load DB
     this.migrateFromLocalStorage().then(() => this.loadFromDB());
+  }
+
+  // Dừng tất cả sound (trừ exceptSound nếu truyền vào)
+  stopAllSounds(exceptSound = null) {
+    this.sounds.forEach(({ sound }) => {
+      try {
+        if (exceptSound && sound === exceptSound) return;
+        if (typeof sound.playing === "function") {
+          if (sound.playing()) sound.stop();
+        } else {
+          sound.stop && sound.stop();
+        }
+      } catch (e) { /* ignore */ }
+    });
+    if (!exceptSound) this.currentPlaying = null;
   }
 
   async handleUpload(event) {
@@ -435,6 +452,14 @@ class SoundBoard {
 
   async loadFromDB() {
     try {
+      // unload previous sounds to avoid duplicates & memory leaks
+      try {
+        this.stopAllSounds();
+        this.sounds.forEach(({ sound, url }) => {
+          try { sound.unload && sound.unload(); url && URL.revokeObjectURL(url); } catch(_) {}
+        });
+      } catch(_) {}
+
       const rows = await SoundDB.getAllSounds("beats");
       this.container.innerHTML = "";
       this.sounds = [];
@@ -462,10 +487,21 @@ class SoundBoard {
     btn.dataset.name = name.toLowerCase();
     btn.onclick = () => {
       try {
+        // Dừng mọi beat khác trên soundboard trước khi play (giữ sound này)
+        this.stopAllSounds(sound);
+
+        // pause youtube trong khi beat đang phát
         this.player?.player?.pauseVideo?.();
+
         sound.volume(this._currentVolume());
         sound.play();
-        sound.once("end", () => this.player?.player?.playVideo?.());
+        this.currentPlaying = sound;
+
+        // khi beat kết thúc -> resume youtube
+        sound.once("end", () => {
+          this.currentPlaying = null;
+          this.player?.player?.playVideo?.();
+        });
       } catch (e) {
         console.error(e);
         window.Swal && Swal.fire("❌ Lỗi", "Không phát được Beat", "error");
@@ -479,6 +515,14 @@ class SoundBoard {
     del.onclick = async (e) => {
       e.stopPropagation();
       try {
+        // nếu sound này đang trong mảng thì dừng & unload
+        const idx = this.sounds.findIndex(s => s.id === id);
+        if (idx > -1) {
+          const s = this.sounds[idx];
+          try { if (typeof s.sound.playing === 'function' && s.sound.playing()) s.sound.stop(); } catch(_) {}
+          try { s.sound.unload && s.sound.unload(); s.url && URL.revokeObjectURL(s.url); } catch(_) {}
+          this.sounds.splice(idx, 1);
+        }
         await SoundDB.deleteSound("beats", id);
         wrap.remove();
       } catch (err) {
@@ -491,7 +535,8 @@ class SoundBoard {
     wrap.appendChild(del);
     this.container.appendChild(wrap);
 
-    this.sounds.push({ id, name, sound, btn, deleteBtn: del });
+    // Lưu thông tin (bao gồm url để revoke sau này)
+    this.sounds.push({ id, name, sound, btn, deleteBtn: del, url });
   }
 
   filterSounds(keyword) {
@@ -527,9 +572,10 @@ class SoundBoard {
 }
 
 
-  // ===============================
-  // 📌 Class quản lý Overlay (không chèn nhạc nền)
-  // ===============================
+
+// ===============================
+// 📌 Class quản lý Overlay (không chèn nhạc nền)
+// ===============================
 class OverlayBoard {
   constructor() {
     this.container = document.getElementById("overlayBoard");
@@ -537,16 +583,33 @@ class OverlayBoard {
     this.volumeSlider = document.getElementById("overlayVolumeSlider");
     this.searchInput = document.getElementById("searchOverlayInput");
     this.sounds = [];
+    this.currentPlaying = null;
 
     this.uploadInput?.addEventListener("change", (e) => this.handleUpload(e));
     this.searchInput?.addEventListener("input", (e) => this.filterSounds(e.target.value));
     this.volumeSlider?.addEventListener("input", (e) => {
       const v = Number(e.target.value || 1);
-      this.sounds.forEach(({ sound }) => sound.volume(v));
+      this.sounds.forEach(({ sound }) => {
+        try { sound.volume(v); } catch(_) {}
+      });
     });
 
     // Migrate rồi load
     this.migrateFromLocalStorage().then(() => this.loadFromDB());
+  }
+
+  stopAllSounds(exceptSound = null) {
+    this.sounds.forEach(({ sound }) => {
+      try {
+        if (exceptSound && sound === exceptSound) return;
+        if (typeof sound.playing === "function") {
+          if (sound.playing()) sound.stop();
+        } else {
+          sound.stop && sound.stop();
+        }
+      } catch (e) {}
+    });
+    if (!exceptSound) this.currentPlaying = null;
   }
 
   async handleUpload(event) {
@@ -580,6 +643,14 @@ class OverlayBoard {
 
   async loadFromDB() {
     try {
+      // unload previous
+      try {
+        this.stopAllSounds();
+        this.sounds.forEach(({ sound, url }) => {
+          try { sound.unload && sound.unload(); url && URL.revokeObjectURL(url); } catch(_) {}
+        });
+      } catch(_) {}
+
       const rows = await SoundDB.getAllSounds("overlays");
       this.container.innerHTML = "";
       this.sounds = [];
@@ -606,8 +677,14 @@ class OverlayBoard {
     btn.dataset.name = name.toLowerCase();
     btn.onclick = () => {
       try {
+        // Dừng overlay khác trước khi phát overlay mới
+        this.stopAllSounds(sound);
         sound.volume(this._currentVolume());
         sound.play();
+        this.currentPlaying = sound;
+        sound.once("end", () => {
+          this.currentPlaying = null;
+        });
       } catch (e) {
         console.error(e);
         window.Swal && Swal.fire("❌ Lỗi", "Không phát được Overlay", "error");
@@ -621,6 +698,13 @@ class OverlayBoard {
     del.onclick = async (e) => {
       e.stopPropagation();
       try {
+        const idx = this.sounds.findIndex(s => s.id === id);
+        if (idx > -1) {
+          const s = this.sounds[idx];
+          try { if (typeof s.sound.playing === 'function' && s.sound.playing()) s.sound.stop(); } catch(_) {}
+          try { s.sound.unload && s.sound.unload(); s.url && URL.revokeObjectURL(s.url); } catch(_) {}
+          this.sounds.splice(idx, 1);
+        }
         await SoundDB.deleteSound("overlays", id);
         wrap.remove();
       } catch (err) {
@@ -633,7 +717,7 @@ class OverlayBoard {
     wrap.appendChild(del);
     this.container.appendChild(wrap);
 
-    this.sounds.push({ id, name, sound, btn, deleteBtn: del });
+    this.sounds.push({ id, name, sound, btn, deleteBtn: del, url });
   }
 
   filterSounds(keyword) {
@@ -666,6 +750,7 @@ class OverlayBoard {
     return fetch(dataURL).then((r) => r.blob());
   }
 }
+
 
 
   // ===============================
